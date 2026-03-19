@@ -18,6 +18,17 @@ Con nombre del proyecto:
 npx github:RamiroFerradas/ai-kit --name "Mi App"
 ```
 
+### Modo stealth (ocultar del repo)
+
+Agrega todos los archivos generados al `.gitignore` para que sean invisibles en el repo:
+
+```bash
+npx github:RamiroFerradas/ai-kit --stealth
+npx github:RamiroFerradas/ai-kit --name "Mi App" --stealth
+```
+
+Los archivos siguen existiendo en tu máquina local pero no se commitean ni se suben al repo. Perfecto para trabajar con agentes IA sin que el sistema sea visible para otros.
+
 > Requiere Node.js 18+ y estar dentro de un repo Git.
 
 ## Qué hace
@@ -48,6 +59,9 @@ npx github:RamiroFerradas/ai-kit
 ```bash
 # Bash directo (sin Node.js)
 bash <(curl -sL https://raw.githubusercontent.com/RamiroFerradas/ai-kit/main/setup.sh)
+
+# Bash con stealth
+bash <(curl -sL https://raw.githubusercontent.com/RamiroFerradas/ai-kit/main/setup.sh) --stealth
 
 # Clonar una vez y reusar
 git clone https://github.com/RamiroFerradas/ai-kit.git ~/.ai-kit
@@ -121,6 +135,21 @@ mi-proyecto/
 3. Commitear: `git add AGENTS.md CLAUDE.md .github/ skills/ .gitignore`
 4. Agregar más skills según necesites (usar la skill `skill-creator`)
 5. Reiniciar VS Code si Engram se configuró → `Ctrl+Shift+P` → MCP: List Servers
+
+## Modo stealth — qué se ignora
+
+Con `--stealth`, se agregan estas líneas al `.gitignore`:
+
+```
+AGENTS.md
+CLAUDE.md
+.github/copilot-instructions.md
+skills/
+.engram/
+.vscode/mcp.json
+```
+
+Los archivos quedan solo en tu máquina local. Si trabajás en equipo, cada dev ejecuta el setup en su copia.
 
 ## Idempotente
 

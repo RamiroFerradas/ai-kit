@@ -39,8 +39,15 @@ echo ""
 
 # --- Nombre del proyecto ---
 PROJECT_NAME=""
+STEALTH=0
+for arg in "$@"; do
+  if [[ "$arg" == "--stealth" ]]; then STEALTH=1; fi
+done
+
 if [[ "$1" == "--name" && -n "$2" ]]; then
   PROJECT_NAME="$2"
+elif [[ "$2" == "--name" && -n "$3" ]]; then
+  PROJECT_NAME="$3"
 else
   DEFAULT_NAME="$(basename "$REPO_ROOT")"
   read -rp "$(echo -e "${CYAN}Nombre del proyecto${NC} [$DEFAULT_NAME]: ")" PROJECT_NAME
@@ -84,6 +91,7 @@ elif [[ -f "*.csproj" || -f "*.sln" ]]; then
 fi
 
 info "Stack detectado: ${BOLD}$FRAMEWORK${NC} / ${BOLD}$LANGUAGE${NC}"
+[[ $STEALTH -eq 1 ]] && info "Modo stealth: ${BOLD}activado${NC} (todo irá a .gitignore)"
 echo ""
 
 # =============================================================================
@@ -362,7 +370,11 @@ fi
 
 # --- .gitignore ---
 ADDED=0
-for line in ".vscode/mcp.json"; do
+GITIGNORE_LINES=(".vscode/mcp.json")
+if [[ $STEALTH -eq 1 ]]; then
+  GITIGNORE_LINES+=("AGENTS.md" "CLAUDE.md" ".github/copilot-instructions.md" "skills/" ".engram/")
+fi
+for line in "${GITIGNORE_LINES[@]}"; do
   if ! grep -qF "$line" .gitignore 2>/dev/null; then
     echo "$line" >> .gitignore
     ((ADDED++))
@@ -431,13 +443,21 @@ echo -e "  ${CYAN}skills/_shared/common.md${NC}           → Patrones compartid
 echo -e "  ${CYAN}skills/$SKILL_NAME/SKILL.md${NC}    → Skill principal"
 echo -e "  ${CYAN}skills/skill-creator/SKILL.md${NC}      → Crear nuevas skills"
 [[ -n "$ENGRAM_PATH" ]] && echo -e "  ${CYAN}.vscode/mcp.json${NC}                   → Engram MCP (gitignored)"
+if [[ $STEALTH -eq 1 ]]; then
+  echo ""
+  echo -e "  ${YELLOW}🥷 Modo stealth activo — todos los archivos están en .gitignore${NC}"
+fi
 echo ""
 echo -e "${BOLD}Próximos pasos:${NC}"
 echo -e "  1. Editar ${CYAN}skills/$SKILL_NAME/SKILL.md${NC} con tus convenciones"
 echo -e "  2. Editar ${CYAN}AGENTS.md${NC} con comandos y stack real"
-echo -e "  3. Commitear:"
-echo -e "     ${YELLOW}git add AGENTS.md CLAUDE.md .github/ skills/ .gitignore${NC}"
-echo -e "     ${YELLOW}git commit -m \"feat: add AI agent kit [skip ci]\"${NC}"
+if [[ $STEALTH -eq 1 ]]; then
+  echo -e "  3. Los archivos ya están en .gitignore — no se subirán al repo"
+else
+  echo -e "  3. Commitear:"
+  echo -e "     ${YELLOW}git add AGENTS.md CLAUDE.md .github/ skills/ .gitignore${NC}"
+  echo -e "     ${YELLOW}git commit -m \"feat: add AI agent kit [skip ci]\"${NC}"
+fi
 [[ -n "$ENGRAM_PATH" ]] && echo -e "  4. Reiniciar VS Code → Ctrl+Shift+P → MCP: List Servers"
 echo ""
 echo -e "${BOLD}Para usarlo en otro repo:${NC}"

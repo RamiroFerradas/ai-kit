@@ -362,6 +362,7 @@ async function main() {
 
   // Parse args
   const args = process.argv.slice(2);
+  const stealth = args.includes("--stealth");
   let projectName;
   const nameIdx = args.indexOf("--name");
   if (nameIdx !== -1 && args[nameIdx + 1]) {
@@ -377,6 +378,7 @@ async function main() {
   info(`Proyecto: ${c.bold(projectName)}`);
   info(`Skill principal: ${c.bold(skillName)}`);
   info(`Stack detectado: ${c.bold(framework)} / ${c.bold(language)}`);
+  if (stealth) info(`Modo stealth: ${c.bold("activado")} (todo irá a .gitignore)`);
   console.log("");
 
   // --- Crear archivos ---
@@ -403,11 +405,15 @@ async function main() {
   }
 
   // .gitignore
-  if (ensureGitignore(".vscode/mcp.json")) {
-    ok(".gitignore actualizado");
-  } else {
-    ok(".gitignore ya configurado");
+  const gitignoreLines = [".vscode/mcp.json"];
+  if (stealth) {
+    gitignoreLines.push("AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md", "skills/", ".engram/");
   }
+  let gitignoreUpdated = false;
+  for (const line of gitignoreLines) {
+    if (ensureGitignore(line)) gitignoreUpdated = true;
+  }
+  ok(gitignoreUpdated ? ".gitignore actualizado" : ".gitignore ya configurado");
 
   // --- Engram ---
   console.log("");
@@ -457,14 +463,21 @@ async function main() {
   if (engramPath) {
     console.log(`  ${c.cyan(".vscode/mcp.json")}                   → Engram MCP`);
   }
+  if (stealth) {
+    console.log("");
+    console.log(`  ${c.yellow("🥷 Modo stealth activo — todos los archivos están en .gitignore")}`);
+  }
   console.log("");
   console.log(c.bold("Próximos pasos:"));
   console.log(`  1. Editar ${c.cyan(`skills/${skillName}/SKILL.md`)} con tus convenciones`);
   console.log(`  2. Editar ${c.cyan("AGENTS.md")} con comandos y stack real`);
-  console.log(`  3. Commitear:`);
-  console.log(`     ${c.yellow('git add AGENTS.md CLAUDE.md .github/ skills/ .gitignore')}`);
-  console.log(`     ${c.yellow('git commit -m "feat: add AI agent kit [skip ci]"')}`);
-  if (engramPath) {
+  if (stealth) {
+    console.log(`  3. Los archivos ya están en .gitignore — no se subirán al repo`);
+  } else {
+    console.log(`  3. Commitear:`);
+    console.log(`     ${c.yellow('git add AGENTS.md CLAUDE.md .github/ skills/ .gitignore')}`);
+    console.log(`     ${c.yellow('git commit -m "feat: add AI agent kit [skip ci]"')}`);
+  }  if (engramPath) {
     console.log(`  4. Reiniciar VS Code → Ctrl+Shift+P → MCP: List Servers`);
   }
   console.log("");
