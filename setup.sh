@@ -8,8 +8,11 @@
 # Uso desde cualquier repo:
 #   bash <(curl -sL https://raw.githubusercontent.com/RamiroFerradas/ai-kit/main/setup.sh)
 #
-# O con nombre:
-#   bash <(curl -sL https://raw.githubusercontent.com/RamiroFerradas/ai-kit/main/setup.sh) --name "Mi App"
+# Con nombre y stealth:
+#   bash <(curl -sL ...) --name "Mi App" --stealth
+#
+# Aceptar todo sin preguntar:
+#   bash <(curl -sL ...) --yes
 #
 # Requisitos:
 #   - Estar dentro de un repo Git
@@ -31,24 +34,34 @@ err()   { echo -e "${RED}✘${NC} $1"; exit 1; }
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || err "No estás dentro de un repo Git. Ejecutá 'git init' primero."
 cd "$REPO_ROOT"
 
+# --- Template base URL (para descargar skills si no hay directorio local) ---
+TEMPLATE_BASE="https://raw.githubusercontent.com/RamiroFerradas/ai-kit/main/templates"
+
+# --- Script dir (puede ser local si se clonó el repo) ---
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TEMPLATES_LOCAL="$SCRIPT_DIR/templates"
+
 echo ""
 echo -e "${BOLD}${CYAN}╔══════════════════════════════════════════╗${NC}"
 echo -e "${BOLD}${CYAN}║     AI Agent Kit — Setup Interactivo     ║${NC}"
 echo -e "${BOLD}${CYAN}╚══════════════════════════════════════════╝${NC}"
 echo ""
 
-# --- Nombre del proyecto ---
+# --- Parse args ---
 PROJECT_NAME=""
 STEALTH=0
-for arg in "$@"; do
-  if [[ "$arg" == "--stealth" ]]; then STEALTH=1; fi
+YES_ALL=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --name) PROJECT_NAME="$2"; shift 2 ;;
+    --stealth) STEALTH=1; shift ;;
+    --yes|-y) YES_ALL=1; shift ;;
+    *) shift ;;
+  esac
 done
 
-if [[ "$1" == "--name" && -n "$2" ]]; then
-  PROJECT_NAME="$2"
-elif [[ "$2" == "--name" && -n "$3" ]]; then
-  PROJECT_NAME="$3"
-else
+if [[ -z "$PROJECT_NAME" ]]; then
   DEFAULT_NAME="$(basename "$REPO_ROOT")"
   read -rp "$(echo -e "${CYAN}Nombre del proyecto${NC} [$DEFAULT_NAME]: ")" PROJECT_NAME
   PROJECT_NAME="${PROJECT_NAME:-$DEFAULT_NAME}"
@@ -59,10 +72,9 @@ SKILL_NAME=$(echo "$PROJECT_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9
 
 info "Proyecto: ${BOLD}$PROJECT_NAME${NC}"
 info "Skill principal: ${BOLD}$SKILL_NAME${NC}"
-echo ""
 
 # --- Stack (detección automática) ---
-FRAMEWORK="TODO"; LANGUAGE="TODO"; PKG_MANAGER=""
+FRAMEWORK="TODO"; LANGUAGE="TODO"
 
 if [[ -f "package.json" ]]; then
   LANGUAGE="TypeScript/JavaScript"
@@ -73,10 +85,6 @@ if [[ -f "package.json" ]]; then
   if grep -q '"angular"' package.json 2>/dev/null; then FRAMEWORK="Angular"; fi
   if grep -q '"astro"' package.json 2>/dev/null; then FRAMEWORK="Astro"; fi
   if grep -q '"nuxt"' package.json 2>/dev/null; then FRAMEWORK="Nuxt"; fi
-  if [[ -f "pnpm-lock.yaml" ]]; then PKG_MANAGER="pnpm";
-  elif [[ -f "yarn.lock" ]]; then PKG_MANAGER="yarn";
-  elif [[ -f "bun.lockb" ]]; then PKG_MANAGER="bun";
-  else PKG_MANAGER="npm"; fi
 elif [[ -f "requirements.txt" || -f "pyproject.toml" ]]; then
   LANGUAGE="Python"
   if grep -q "django" pyproject.toml 2>/dev/null || grep -q "django" requirements.txt 2>/dev/null; then FRAMEWORK="Django"; fi
@@ -86,21 +94,96 @@ elif [[ -f "go.mod" ]]; then
   LANGUAGE="Go"
 elif [[ -f "Cargo.toml" ]]; then
   LANGUAGE="Rust"
-elif [[ -f "*.csproj" || -f "*.sln" ]]; then
-  LANGUAGE="C#/.NET"
 fi
 
 info "Stack detectado: ${BOLD}$FRAMEWORK${NC} / ${BOLD}$LANGUAGE${NC}"
 [[ $STEALTH -eq 1 ]] && info "Modo stealth: ${BOLD}activado${NC} (todo irá a .gitignore)"
 echo ""
 
+# --- Helper: ask yes/no ---
+ask_yes_no() {
+  local question="$1"
+  if [[ $YES_ALL -eq 1 ]]; then return 0; fi
+  local answer
+  read -rp "$(echo -e "${CYAN}${question} [S/n]:${NC} ")" answer
+  answer="${answer,,}" # lowercase
+  [[ -z "$answer" || "$answer" == "s" || "$answer" == "si" || "$answer" == "sí" || "$answer" == "y" || "$answer" == "yes" ]]
+}
+
+# --- Helper: copy template (local or download) ---
+copy_template() {
+  local name="$1"
+  local dest="skills/$name/SKILL.md"
+
+  if [[ -f "$dest" ]]; then
+    warn "$dest ya existe, saltando"
+    return
+  fi
+
+  mkdir -p "skills/$name"
+
+  # Try local first (cloned repo)
+  if [[ -f "$TEMPLATES_LOCAL/$name/SKILL.md" ]]; then
+    cp "$TEMPLATES_LOCAL/$name/SKILL.md" "$dest"
+    ok "$dest"
+    return
+  fi
+
+  # Download from GitHub
+  if command -v curl &>/dev/null; then
+    local url="$TEMPLATE_BASE/$name/SKILL.md"
+    if curl -fsSL "$url" -o "$dest" 2>/dev/null; then
+      ok "$dest (descargado)"
+      return
+    fi
+  fi
+
+  warn "No se pudo obtener el template $name"
+}
+
 # =============================================================================
-# Crear archivos (solo si no existen)
+# Preguntar por skills opcionales
+# =============================================================================
+INSTALLED_SKILLS=()
+
+echo -e "${BOLD}Skills opcionales detectadas para tu stack:${NC}"
+echo ""
+
+# React 19 — si framework es React/Next.js o lenguaje es TS/JS
+if [[ "$FRAMEWORK" == "Next.js" || "$FRAMEWORK" == "React" || "$LANGUAGE" == "TypeScript/JavaScript" ]]; then
+  if ask_yes_no "  ¿Instalar React 19?"; then
+    INSTALLED_SKILLS+=("react-19|React 19 + React Compiler: sin memo, use(), useActionState, ref como prop|Escribir componentes React, hooks, usar use() o useActionState")
+  fi
+fi
+
+# Next.js 16 Cache Components — si framework es Next.js
+if [[ "$FRAMEWORK" == "Next.js" ]]; then
+  if ask_yes_no "  ¿Instalar Next.js 16 Cache Components?"; then
+    INSTALLED_SKILLS+=("next-cache-components|use cache, cacheLife, cacheTag, updateTag, PPR|Usar use cache, cacheTag, cacheLife o PPR")
+  fi
+fi
+
+# TypeScript — si lenguaje es TS/JS
+if [[ "$LANGUAGE" == "TypeScript/JavaScript" ]]; then
+  if ask_yes_no "  ¿Instalar TypeScript?"; then
+    INSTALLED_SKILLS+=("typescript|Convenciones TypeScript: strict, tipos, interfaces, generics|Escribir TypeScript, definir tipos o interfaces")
+  fi
+fi
+
+# Token Optimization — siempre
+if ask_yes_no "  ¿Instalar Token Optimization?"; then
+  INSTALLED_SKILLS+=("token-optimization|Optimización de tokens: word budgets, lecturas paralelas, respuestas concisas|Respuestas verbosas, optimizar consumo de tokens")
+fi
+
+echo ""
+
+# =============================================================================
+# Crear archivos base (solo si no existen)
 # =============================================================================
 
-# --- skills/_shared/common.md ---
 mkdir -p skills/_shared skills/"$SKILL_NAME" skills/skill-creator .github
 
+# --- skills/_shared/common.md ---
 if [[ ! -f "skills/_shared/common.md" ]]; then
 cat > "skills/_shared/common.md" << 'EOF_COMMON'
 ---
@@ -162,8 +245,6 @@ const key = process.env.SECRET_KEY;
 ---
 
 ## § Formato de Reglas en Skills
-
-Cada regla usa etiquetas de severidad y ejemplos con ✅ / ❌:
 
 ```markdown
 ## Nombre de la Regla (REQUIRED | RECOMMENDED)
@@ -295,8 +376,39 @@ else
   warn "skills/skill-creator/SKILL.md ya existe, saltando"
 fi
 
-# --- AGENTS.md ---
+# =============================================================================
+# Instalar skills opcionales
+# =============================================================================
+for entry in "${INSTALLED_SKILLS[@]}"; do
+  IFS='|' read -r skill_name skill_desc skill_trigger <<< "$entry"
+  copy_template "$skill_name"
+done
+
+# =============================================================================
+# AGENTS.md (generado dinámicamente con skills instaladas)
+# =============================================================================
 if [[ ! -f "AGENTS.md" ]]; then
+
+# Build skills table
+SKILLS_TABLE="| \`$SKILL_NAME\` | Convenciones generales del proyecto | [SKILL.md](skills/$SKILL_NAME/SKILL.md) |"
+for entry in "${INSTALLED_SKILLS[@]}"; do
+  IFS='|' read -r skill_name skill_desc skill_trigger <<< "$entry"
+  SKILLS_TABLE="$SKILLS_TABLE
+| \`$skill_name\` | $skill_desc | [SKILL.md](skills/$skill_name/SKILL.md) |"
+done
+SKILLS_TABLE="$SKILLS_TABLE
+| \`skill-creator\` | Cómo crear nuevas skills | [SKILL.md](skills/skill-creator/SKILL.md) |"
+
+# Build auto-invoke table
+AUTO_INVOKE="| Trabajar en cualquier parte del proyecto | \`$SKILL_NAME\` |"
+for entry in "${INSTALLED_SKILLS[@]}"; do
+  IFS='|' read -r skill_name skill_desc skill_trigger <<< "$entry"
+  AUTO_INVOKE="$AUTO_INVOKE
+| $skill_trigger | \`$skill_name\` |"
+done
+AUTO_INVOKE="$AUTO_INVOKE
+| Crear una nueva skill o documentar un patrón | \`skill-creator\` |"
+
 cat > "AGENTS.md" << EOF_AGENTS
 # $PROJECT_NAME — Agent Guidelines
 
@@ -313,8 +425,7 @@ cat > "AGENTS.md" << EOF_AGENTS
 
 | Skill | Descripción | Archivo |
 |-------|-------------|---------|
-| \`$SKILL_NAME\` | Convenciones generales del proyecto | [SKILL.md](skills/$SKILL_NAME/SKILL.md) |
-| \`skill-creator\` | Cómo crear nuevas skills | [SKILL.md](skills/skill-creator/SKILL.md) |
+$SKILLS_TABLE
 
 ### Recursos compartidos
 
@@ -328,8 +439,7 @@ cat > "AGENTS.md" << EOF_AGENTS
 
 | Acción | Skill a cargar |
 |--------|---------------|
-| Trabajar en cualquier parte del proyecto | \`$SKILL_NAME\` |
-| Crear una nueva skill o documentar un patrón | \`skill-creator\` |
+$AUTO_INVOKE
 
 ---
 
@@ -399,7 +509,6 @@ if command -v engram &>/dev/null; then
   if [[ ! -f ".vscode/mcp.json" ]]; then
     mkdir -p .vscode
 
-    # Detectar OS para formato de ruta
     if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
       WIN_PATH=$(cygpath -w "$ENGRAM_PATH" 2>/dev/null || echo "$ENGRAM_PATH")
       ESCAPED=$(echo "$WIN_PATH" | sed 's/\\/\\\\/g')
@@ -442,6 +551,10 @@ echo -e "  ${CYAN}.github/copilot-instructions.md${NC}    → VS Code Copilot"
 echo -e "  ${CYAN}skills/_shared/common.md${NC}           → Patrones compartidos"
 echo -e "  ${CYAN}skills/$SKILL_NAME/SKILL.md${NC}    → Skill principal"
 echo -e "  ${CYAN}skills/skill-creator/SKILL.md${NC}      → Crear nuevas skills"
+for entry in "${INSTALLED_SKILLS[@]}"; do
+  IFS='|' read -r skill_name skill_desc skill_trigger <<< "$entry"
+  echo -e "  ${CYAN}skills/$skill_name/SKILL.md${NC}    → $skill_desc"
+done
 [[ -n "$ENGRAM_PATH" ]] && echo -e "  ${CYAN}.vscode/mcp.json${NC}                   → Engram MCP (gitignored)"
 if [[ $STEALTH -eq 1 ]]; then
   echo ""
@@ -459,7 +572,4 @@ else
   echo -e "     ${YELLOW}git commit -m \"feat: add AI agent kit [skip ci]\"${NC}"
 fi
 [[ -n "$ENGRAM_PATH" ]] && echo -e "  4. Reiniciar VS Code → Ctrl+Shift+P → MCP: List Servers"
-echo ""
-echo -e "${BOLD}Para usarlo en otro repo:${NC}"
-echo -e "  ${YELLOW}bash <(curl -sL https://raw.githubusercontent.com/RamiroFerradas/ai-kit/main/setup.sh)${NC}"
 echo ""

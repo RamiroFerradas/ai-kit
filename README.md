@@ -29,6 +29,15 @@ npx github:RamiroFerradas/ai-kit --name "Mi App" --stealth
 
 Los archivos siguen existiendo en tu máquina local pero no se commitean ni se suben al repo. Perfecto para trabajar con agentes IA sin que el sistema sea visible para otros.
 
+### Aceptar todo sin preguntar
+
+```bash
+npx github:RamiroFerradas/ai-kit --yes
+npx github:RamiroFerradas/ai-kit --name "Mi App" --stealth --yes
+```
+
+Instala todas las skills aplicables a tu stack sin preguntar (equivale a responder "Sí" a todo).
+
 > Requiere Node.js 18+ y estar dentro de un repo Git.
 
 ## Qué hace
@@ -43,6 +52,10 @@ Con un solo comando genera:
 | `skills/_shared/common.md` | Patrones compartidos (naming, imports, env vars) |
 | `skills/<proyecto>/SKILL.md` | Skill principal con convenciones del proyecto |
 | `skills/skill-creator/SKILL.md` | Guía para crear nuevas skills |
+| `skills/react-19/SKILL.md` | React 19 + React Compiler (si aplica) |
+| `skills/next-cache-components/SKILL.md` | Next.js 16 Cache Components (si aplica) |
+| `skills/typescript/SKILL.md` | Convenciones TypeScript (si aplica) |
+| `skills/token-optimization/SKILL.md` | Optimización de tokens para agentes |
 | `.vscode/mcp.json` | Engram MCP (si está instalado) |
 
 ## Uso
@@ -68,13 +81,25 @@ git clone https://github.com/RamiroFerradas/ai-kit.git ~/.ai-kit
 cd mi-proyecto && bash ~/.ai-kit/setup.sh
 ```
 
+## Skills interactivas
+
+Según el stack detectado, el setup pregunta si querés instalar skills adicionales:
+
+| Skill | Se ofrece cuando | Default |
+|-------|------------------|---------|
+| **React 19** | Framework es React/Next.js o lenguaje es TS/JS | Sí |
+| **Next.js 16 Cache Components** | Framework es Next.js | Sí |
+| **TypeScript** | Lenguaje es TypeScript/JavaScript | Sí |
+| **Token Optimization** | Siempre | Sí |
+
+Cada skill se puede rechazar respondiendo "n". Con `--yes` se instalan todas sin preguntar.
+
 ## Detección automática
 
 El script detecta automáticamente:
 
 - **Framework**: Next.js, React, Vue, Svelte, Angular, Astro, Nuxt, Django, FastAPI, Flask
 - **Lenguaje**: TypeScript/JS, Python, Go, Rust, C#
-- **Package manager**: npm, pnpm, yarn, bun
 - **Engram**: Si está instalado, configura `.vscode/mcp.json` con ruta absoluta
 
 ## Engram (memoria persistente)
@@ -119,6 +144,14 @@ mi-proyecto/
 │   ├── _shared/
 │   │   └── common.md
 │   ├── mi-proyecto/
+│   │   └── SKILL.md
+│   ├── react-19/              ← si se aceptó
+│   │   └── SKILL.md
+│   ├── next-cache-components/ ← si se aceptó
+│   │   └── SKILL.md
+│   ├── typescript/            ← si se aceptó
+│   │   └── SKILL.md
+│   ├── token-optimization/    ← si se aceptó
 │   │   └── SKILL.md
 │   └── skill-creator/
 │       └── SKILL.md

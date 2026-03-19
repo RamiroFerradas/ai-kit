@@ -35,6 +35,9 @@ try {
 }
 process.chdir(repoRoot);
 
+// --- Directorio de templates del kit ---
+const templatesDir = path.join(__dirname, "..", "templates");
+
 // --- Detectar stack ---
 function detectStack() {
   let framework = "TODO";
@@ -92,6 +95,16 @@ function writeIfNew(filePath, content) {
   return true;
 }
 
+// --- Copiar template si existe y destino no existe ---
+function copyTemplate(templateName, destPath) {
+  const src = path.join(templatesDir, templateName, "SKILL.md");
+  if (!fs.existsSync(src)) {
+    warn(`Template ${templateName} no encontrado`);
+    return false;
+  }
+  return writeIfNew(destPath, fs.readFileSync(src, "utf8"));
+}
+
 // --- Agregar línea a .gitignore si no está ---
 function ensureGitignore(line) {
   const file = ".gitignore";
@@ -115,13 +128,65 @@ function ask(question, defaultValue) {
   });
 }
 
+// --- Prompt Sí/No ---
+function askYesNo(question, defaultYes = true) {
+  return new Promise((resolve) => {
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+    const hint = defaultYes ? "S/n" : "s/N";
+    rl.question(c.cyan(`${question} [${hint}]: `), (answer) => {
+      rl.close();
+      const a = answer.trim().toLowerCase();
+      if (!a) return resolve(defaultYes);
+      resolve(a === "s" || a === "si" || a === "sí" || a === "y" || a === "yes");
+    });
+  });
+}
+
 // --- Kebab-case ---
 function toKebab(str) {
   return str.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
 // =============================================================================
-// Templates
+// Skill Groups — se preguntan de forma interactiva
+// =============================================================================
+const SKILL_GROUPS = [
+  {
+    id: "react19",
+    name: "react-19",
+    label: "React 19",
+    description: "React 19 + React Compiler: sin memo, use(), useActionState, ref como prop",
+    trigger: "Escribir componentes React, hooks, usar use() o useActionState",
+    condition: (fw, lang) => ["Next.js", "React"].includes(fw) || lang === "TypeScript/JavaScript",
+  },
+  {
+    id: "nextCache",
+    name: "next-cache-components",
+    label: "Next.js 16 Cache Components",
+    description: "use cache, cacheLife, cacheTag, updateTag, PPR",
+    trigger: "Usar use cache, cacheTag, cacheLife o PPR",
+    condition: (fw) => fw === "Next.js",
+  },
+  {
+    id: "typescript",
+    name: "typescript",
+    label: "TypeScript",
+    description: "Convenciones TypeScript: strict, tipos, interfaces, generics",
+    trigger: "Escribir TypeScript, definir tipos o interfaces",
+    condition: (_, lang) => lang === "TypeScript/JavaScript",
+  },
+  {
+    id: "tokenOpt",
+    name: "token-optimization",
+    label: "Token Optimization",
+    description: "Optimización de tokens: word budgets, lecturas paralelas, respuestas concisas",
+    trigger: "Respuestas verbosas, optimizar consumo de tokens",
+    condition: () => true,
+  },
+];
+
+// =============================================================================
+// Templates (inline — base files)
 // =============================================================================
 
 const COMMON_MD = `---
@@ -298,7 +363,26 @@ allowed-tools: Read, Edit, Write, Glob, Grep
 - [ ] ¿Trigger agregado a auto-invocación?
 `;
 
-function agentsMd(projectName, skillName, framework, language) {
+// =============================================================================
+// Generate AGENTS.md content dynamically
+// =============================================================================
+function agentsMd(projectName, skillName, framework, language, installedSkills) {
+  // Skills table
+  let skillsTable = "";
+  skillsTable += `| \`${skillName}\` | Convenciones generales del proyecto | [SKILL.md](skills/${skillName}/SKILL.md) |\n`;
+  for (const s of installedSkills) {
+    skillsTable += `| \`${s.name}\` | ${s.description} | [SKILL.md](skills/${s.name}/SKILL.md) |\n`;
+  }
+  skillsTable += `| \`skill-creator\` | Cómo crear nuevas skills | [SKILL.md](skills/skill-creator/SKILL.md) |`;
+
+  // Auto-invoke table
+  let autoInvoke = "";
+  autoInvoke += `| Trabajar en cualquier parte del proyecto | \`${skillName}\` |\n`;
+  for (const s of installedSkills) {
+    autoInvoke += `| ${s.trigger} | \`${s.name}\` |\n`;
+  }
+  autoInvoke += `| Crear una nueva skill o documentar un patrón | \`skill-creator\` |`;
+
   return `# ${projectName} — Agent Guidelines
 
 ## Stack
@@ -314,8 +398,7 @@ function agentsMd(projectName, skillName, framework, language) {
 
 | Skill | Descripción | Archivo |
 |-------|-------------|---------|
-| \`${skillName}\` | Convenciones generales del proyecto | [SKILL.md](skills/${skillName}/SKILL.md) |
-| \`skill-creator\` | Cómo crear nuevas skills | [SKILL.md](skills/skill-creator/SKILL.md) |
+${skillsTable}
 
 ### Recursos compartidos
 
@@ -329,8 +412,7 @@ function agentsMd(projectName, skillName, framework, language) {
 
 | Acción | Skill a cargar |
 |--------|---------------|
-| Trabajar en cualquier parte del proyecto | \`${skillName}\` |
-| Crear una nueva skill o documentar un patrón | \`skill-creator\` |
+${autoInvoke}
 
 ---
 
@@ -363,6 +445,7 @@ async function main() {
   // Parse args
   const args = process.argv.slice(2);
   const stealth = args.includes("--stealth");
+  const yesAll = args.includes("--yes") || args.includes("-y");
   let projectName;
   const nameIdx = args.indexOf("--name");
   if (nameIdx !== -1 && args[nameIdx + 1]) {
@@ -381,12 +464,34 @@ async function main() {
   if (stealth) info(`Modo stealth: ${c.bold("activado")} (todo irá a .gitignore)`);
   console.log("");
 
-  // --- Crear archivos ---
+  // --- Preguntar por skill groups opcionales ---
+  const applicableGroups = SKILL_GROUPS.filter((g) => g.condition(framework, language));
+
+  const installedSkills = [];
+  if (applicableGroups.length > 0) {
+    console.log(c.bold("Skills opcionales detectadas para tu stack:"));
+    console.log("");
+    for (const group of applicableGroups) {
+      const install = yesAll || (await askYesNo(`  ¿Instalar ${c.bold(group.label)}?`));
+      if (install) {
+        installedSkills.push(group);
+      }
+    }
+    console.log("");
+  }
+
+  // --- Crear archivos base ---
   writeIfNew("skills/_shared/common.md", COMMON_MD);
   writeIfNew(`skills/${skillName}/SKILL.md`, skillMd(skillName, projectName, framework, language));
   writeIfNew("skills/skill-creator/SKILL.md", SKILL_CREATOR);
 
-  const agentsContent = agentsMd(projectName, skillName, framework, language);
+  // --- Crear skills opcionales ---
+  for (const skill of installedSkills) {
+    copyTemplate(skill.name, `skills/${skill.name}/SKILL.md`);
+  }
+
+  // --- AGENTS.md, CLAUDE.md, copilot-instructions ---
+  const agentsContent = agentsMd(projectName, skillName, framework, language, installedSkills);
   writeIfNew("AGENTS.md", agentsContent);
 
   if (!fs.existsSync("CLAUDE.md")) {
@@ -425,7 +530,6 @@ async function main() {
     if (!fs.existsSync(".vscode/mcp.json")) {
       fs.mkdirSync(".vscode", { recursive: true });
 
-      // Formato de ruta según OS
       const escapedPath =
         process.platform === "win32"
           ? engramPath.replace(/\\/g, "\\\\")
@@ -460,6 +564,9 @@ async function main() {
   console.log(`  ${c.cyan("skills/_shared/common.md")}           → Patrones compartidos`);
   console.log(`  ${c.cyan(`skills/${skillName}/SKILL.md`)}    → Skill principal`);
   console.log(`  ${c.cyan("skills/skill-creator/SKILL.md")}      → Crear nuevas skills`);
+  for (const skill of installedSkills) {
+    console.log(`  ${c.cyan(`skills/${skill.name}/SKILL.md`)}    → ${skill.label}`);
+  }
   if (engramPath) {
     console.log(`  ${c.cyan(".vscode/mcp.json")}                   → Engram MCP`);
   }
@@ -477,8 +584,9 @@ async function main() {
     console.log(`  3. Commitear:`);
     console.log(`     ${c.yellow('git add AGENTS.md CLAUDE.md .github/ skills/ .gitignore')}`);
     console.log(`     ${c.yellow('git commit -m "feat: add AI agent kit [skip ci]"')}`);
-  }  if (engramPath) {
-    console.log(`  4. Reiniciar VS Code → Ctrl+Shift+P → MCP: List Servers`);
+  }
+  if (engramPath) {
+    console.log(`  ${stealth ? "4" : "4"}. Reiniciar VS Code → Ctrl+Shift+P → MCP: List Servers`);
   }
   console.log("");
 }
