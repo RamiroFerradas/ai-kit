@@ -458,6 +458,8 @@ $AUTO_INVOKE
 mem_context(project="$PROJECT_NAME") → recuperar decisiones previas
 \`\`\`
 
+> **Si Engram no responde**: buscar tools con patrón \`mcp_engram\` usando tool_search. Los tools se llaman \`mcp_engram_mem_save\`, \`mcp_engram_mem_context\`, etc. Si aún no aparecen, pedir al usuario: Ctrl+Shift+P → "MCP: List Servers" → verificar que Engram esté "running".
+
 ### Durante la sesión — guardar TODO con mem_save
 - Cada bug encontrado y cómo se solucionó
 - Cada decisión de arquitectura o diseño

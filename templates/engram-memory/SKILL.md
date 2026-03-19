@@ -27,6 +27,8 @@ mem_context(project="<nombre-proyecto>") → recuperar contexto previo
 Esto carga decisiones, bugs, patrones y descubrimientos de sesiones anteriores.
 **SIEMPRE hacerlo ANTES de empezar a trabajar.**
 
+> **Si Engram no responde**: buscar tools con patrón `mcp_engram` usando tool_search. Los tools se llaman `mcp_engram_mem_save`, `mcp_engram_mem_context`, etc. Si aún no aparecen, pedir al usuario: Ctrl+Shift+P → "MCP: List Servers" → verificar que Engram esté "running".
+
 ---
 
 ## Durante la Sesión — Qué Guardar (REQUIRED)
