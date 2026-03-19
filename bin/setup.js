@@ -589,7 +589,7 @@ async function main() {
         if (!pkg.scripts) pkg.scripts = {};
         if (!pkg.scripts.prebuild) {
           const srcDir = fs.existsSync("src") ? "src/" : fs.existsSync("app") ? "app/" : ".";
-          pkg.scripts.prebuild = `eslint --fix --rule '{"unused-imports/no-unused-imports": "error"}' --ext .ts,.tsx ${srcDir}`;
+          pkg.scripts.prebuild = `eslint --fix --ext .ts,.tsx ${srcDir}`;
           fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
           ok("package.json — script prebuild agregado");
         } else {

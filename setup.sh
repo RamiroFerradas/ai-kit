@@ -580,7 +580,7 @@ EOF_ESLINT
         const fs = require('fs');
         const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
         if (!pkg.scripts) pkg.scripts = {};
-        pkg.scripts.prebuild = 'eslint --fix --rule \\'\\\"unused-imports/no-unused-imports\\\": \\\"error\\\"\\' --ext .ts,.tsx $SRC_DIR';
+        pkg.scripts.prebuild = 'eslint --fix --ext .ts,.tsx $SRC_DIR';
         fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
       " && ok "package.json — script prebuild agregado" || warn "No se pudo modificar package.json"
     else
