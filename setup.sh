@@ -497,6 +497,99 @@ else
 fi
 
 # =============================================================================
+# ESLint unused imports (solo para proyectos TS/JS)
+# =============================================================================
+if [[ "$LANGUAGE" == "TypeScript/JavaScript" && -f "package.json" ]]; then
+  INSTALL_LINT=0
+  if [[ $YES_ALL -eq 1 ]]; then
+    INSTALL_LINT=1
+  else
+    if ask_yes_no "¿Configurar limpieza automática de imports no usados en build?"; then
+      INSTALL_LINT=1
+    fi
+  fi
+
+  if [[ $INSTALL_LINT -eq 1 ]]; then
+    echo ""
+    info "Configurando eslint-plugin-unused-imports..."
+
+    # Detectar package manager
+    PM="npm"
+    [[ -f "pnpm-lock.yaml" ]] && PM="pnpm"
+    [[ -f "yarn.lock" ]] && PM="yarn"
+    [[ -f "bun.lockb" ]] && PM="bun"
+
+    case "$PM" in
+      npm)  INSTALL_CMD="npm install -D eslint-plugin-unused-imports" ;;
+      pnpm) INSTALL_CMD="pnpm add -D eslint-plugin-unused-imports" ;;
+      yarn) INSTALL_CMD="yarn add -D eslint-plugin-unused-imports" ;;
+      bun)  INSTALL_CMD="bun add -D eslint-plugin-unused-imports" ;;
+    esac
+
+    if $INSTALL_CMD 2>/dev/null; then
+      ok "eslint-plugin-unused-imports instalado"
+    else
+      warn "No se pudo instalar eslint-plugin-unused-imports (instalalo manual: $INSTALL_CMD)"
+    fi
+
+    # Configurar .eslintrc.json
+    if [[ -f ".eslintrc.json" ]]; then
+      # Si ya tiene el plugin, no tocar
+      if ! grep -q "unused-imports" .eslintrc.json; then
+        # Usar node para manipular JSON de forma segura
+        node -e "
+          const fs = require('fs');
+          const c = JSON.parse(fs.readFileSync('.eslintrc.json', 'utf8'));
+          if (!c.plugins) c.plugins = [];
+          if (!c.plugins.includes('unused-imports')) c.plugins.push('unused-imports');
+          if (!c.rules) c.rules = {};
+          c.rules['no-unused-vars'] = 'off';
+          c.rules['unused-imports/no-unused-imports'] = 'warn';
+          c.rules['unused-imports/no-unused-vars'] = ['warn', { vars: 'all', varsIgnorePattern: '^_', args: 'after-used', argsIgnorePattern: '^_' }];
+          fs.writeFileSync('.eslintrc.json', JSON.stringify(c, null, 2) + '\n');
+        " && ok ".eslintrc.json actualizado con unused-imports" || warn ".eslintrc.json no se pudo actualizar"
+      fi
+    else
+      cat > ".eslintrc.json" << 'EOF_ESLINT'
+{
+  "plugins": ["unused-imports"],
+  "rules": {
+    "no-unused-vars": "off",
+    "unused-imports/no-unused-imports": "warn",
+    "unused-imports/no-unused-vars": [
+      "warn",
+      {
+        "vars": "all",
+        "varsIgnorePattern": "^_",
+        "args": "after-used",
+        "argsIgnorePattern": "^_"
+      }
+    ]
+  }
+}
+EOF_ESLINT
+      ok ".eslintrc.json creado con unused-imports"
+    fi
+
+    # Agregar prebuild script
+    if ! grep -q '"prebuild"' package.json 2>/dev/null; then
+      SRC_DIR="."
+      [[ -d "src" ]] && SRC_DIR="src/"
+      [[ -d "app" ]] && SRC_DIR="app/"
+      node -e "
+        const fs = require('fs');
+        const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+        if (!pkg.scripts) pkg.scripts = {};
+        pkg.scripts.prebuild = 'eslint --fix --rule \\'\\\"unused-imports/no-unused-imports\\\": \\\"error\\\"\\' --ext .ts,.tsx $SRC_DIR';
+        fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+      " && ok "package.json — script prebuild agregado" || warn "No se pudo modificar package.json"
+    else
+      warn "package.json ya tiene un script prebuild"
+    fi
+  fi
+fi
+
+# =============================================================================
 # Engram
 # =============================================================================
 echo ""

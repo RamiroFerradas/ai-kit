@@ -520,6 +520,87 @@ async function main() {
   }
   ok(gitignoreUpdated ? ".gitignore actualizado" : ".gitignore ya configurado");
 
+  // --- ESLint unused imports (solo para proyectos TS/JS con package.json) ---
+  if (language === "TypeScript/JavaScript" && fs.existsSync("package.json")) {
+    const installLint = yesAll || (await askYesNo("¿Configurar limpieza automática de imports no usados en build?"));
+    if (installLint) {
+      console.log("");
+      info("Configurando eslint-plugin-unused-imports...");
+
+      // Detectar package manager
+      let pm = "npm";
+      if (fs.existsSync("pnpm-lock.yaml")) pm = "pnpm";
+      else if (fs.existsSync("yarn.lock")) pm = "yarn";
+      else if (fs.existsSync("bun.lockb")) pm = "bun";
+
+      const installCmd =
+        pm === "npm" ? "npm install -D eslint-plugin-unused-imports"
+        : pm === "pnpm" ? "pnpm add -D eslint-plugin-unused-imports"
+        : pm === "yarn" ? "yarn add -D eslint-plugin-unused-imports"
+        : "bun add -D eslint-plugin-unused-imports";
+
+      try {
+        execSync(installCmd, { stdio: "pipe" });
+        ok("eslint-plugin-unused-imports instalado");
+      } catch {
+        warn("No se pudo instalar eslint-plugin-unused-imports (instalalo manual: " + installCmd + ")");
+      }
+
+      // Configurar .eslintrc.json
+      const eslintFile = ".eslintrc.json";
+      if (fs.existsSync(eslintFile)) {
+        try {
+          const eslintConfig = JSON.parse(fs.readFileSync(eslintFile, "utf8"));
+          if (!eslintConfig.plugins) eslintConfig.plugins = [];
+          if (!eslintConfig.plugins.includes("unused-imports")) {
+            eslintConfig.plugins.push("unused-imports");
+          }
+          if (!eslintConfig.rules) eslintConfig.rules = {};
+          eslintConfig.rules["no-unused-vars"] = "off";
+          eslintConfig.rules["unused-imports/no-unused-imports"] = "warn";
+          eslintConfig.rules["unused-imports/no-unused-vars"] = [
+            "warn",
+            { vars: "all", varsIgnorePattern: "^_", args: "after-used", argsIgnorePattern: "^_" },
+          ];
+          fs.writeFileSync(eslintFile, JSON.stringify(eslintConfig, null, 2) + "\n");
+          ok(".eslintrc.json actualizado con unused-imports");
+        } catch {
+          warn(".eslintrc.json no se pudo parsear, configuralo manual");
+        }
+      } else {
+        const eslintConfig = {
+          plugins: ["unused-imports"],
+          rules: {
+            "no-unused-vars": "off",
+            "unused-imports/no-unused-imports": "warn",
+            "unused-imports/no-unused-vars": [
+              "warn",
+              { vars: "all", varsIgnorePattern: "^_", args: "after-used", argsIgnorePattern: "^_" },
+            ],
+          },
+        };
+        fs.writeFileSync(eslintFile, JSON.stringify(eslintConfig, null, 2) + "\n");
+        ok(".eslintrc.json creado con unused-imports");
+      }
+
+      // Agregar prebuild script a package.json
+      try {
+        const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+        if (!pkg.scripts) pkg.scripts = {};
+        if (!pkg.scripts.prebuild) {
+          const srcDir = fs.existsSync("src") ? "src/" : fs.existsSync("app") ? "app/" : ".";
+          pkg.scripts.prebuild = `eslint --fix --rule '{"unused-imports/no-unused-imports": "error"}' --ext .ts,.tsx ${srcDir}`;
+          fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2) + "\n");
+          ok("package.json — script prebuild agregado");
+        } else {
+          warn("package.json ya tiene un script prebuild");
+        }
+      } catch {
+        warn("No se pudo modificar package.json");
+      }
+    }
+  }
+
   // --- Engram ---
   console.log("");
   const engramPath = findEngram();
