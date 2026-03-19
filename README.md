@@ -56,6 +56,7 @@ Con un solo comando genera:
 | `skills/next-cache-components/SKILL.md` | Next.js 16 Cache Components (si aplica) |
 | `skills/typescript/SKILL.md` | Convenciones TypeScript (si aplica) |
 | `skills/token-optimization/SKILL.md` | Optimización de tokens para agentes |
+| `skills/engram-memory/SKILL.md` | Uso obligatorio de Engram (si está instalado) |
 | `.vscode/mcp.json` | Engram MCP (si está instalado) |
 
 ## Uso

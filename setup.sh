@@ -447,7 +447,33 @@ $AUTO_INVOKE
 
 - Antes de generar código, leer la skill correspondiente.
 - Las skills referencian \`skills/_shared/common.md\` para evitar repetir patrones.
-- Si Engram está disponible, guardar decisiones importantes con \`mem_save\`.
+- **Engram obligatorio**: Usar \`mem_context\` al inicio de cada sesión para recuperar contexto previo. Guardar TODA decisión, bug, fix, descubrimiento o patrón con \`mem_save\` antes de terminar. Engram es la memoria persistente del proyecto — si no se guarda, se pierde.
+
+---
+
+## Uso de Engram (REQUIRED)
+
+### Al inicio de cada sesión
+\`\`\`
+mem_context(project="$PROJECT_NAME") → recuperar decisiones previas
+\`\`\`
+
+### Durante la sesión — guardar TODO con mem_save
+- Cada bug encontrado y cómo se solucionó
+- Cada decisión de arquitectura o diseño
+- Cada patrón descubierto del proyecto
+- Cada config o workaround que funcionó
+- Cada refactor importante
+
+### Al finalizar la sesión
+\`\`\`
+mem_session_end(summary="Resumen de lo hecho en la sesión")
+\`\`\`
+
+### Ejemplo
+\`\`\`
+mem_save(title="Fix: build falla por X", type="bugfix", content="**What**: ... **Fix**: ... **Where**: ...")
+\`\`\`
 
 ---
 
@@ -608,6 +634,9 @@ if command -v engram &>/dev/null; then
   ENGRAM_PATH="$(command -v engram)"
   ok "Engram encontrado: $ENGRAM_PATH"
 
+  # Instalar skill de Engram automáticamente
+  copy_template "engram-memory"
+
   if [[ ! -f ".vscode/mcp.json" ]]; then
     mkdir -p .vscode
 
@@ -657,7 +686,8 @@ for entry in "${INSTALLED_SKILLS[@]}"; do
   IFS='|' read -r skill_name skill_desc skill_trigger <<< "$entry"
   echo -e "  ${CYAN}skills/$skill_name/SKILL.md${NC}    → $skill_desc"
 done
-[[ -n "$ENGRAM_PATH" ]] && echo -e "  ${CYAN}.vscode/mcp.json${NC}                   → Engram MCP (gitignored)"
+[[ -n "$ENGRAM_PATH" ]] && echo -e "  ${CYAN}.vscode/mcp.json${NC}                   → Engram MCP"
+[[ -n "$ENGRAM_PATH" ]] && echo -e "  ${CYAN}skills/engram-memory/SKILL.md${NC}       → Engram uso obligatorio"
 if [[ $STEALTH -eq 1 ]]; then
   echo ""
   echo -e "  ${YELLOW}🥷 Modo stealth activo — todo excluido vía .git/info/exclude (cero rastros)${NC}"

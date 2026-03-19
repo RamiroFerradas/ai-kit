@@ -433,7 +433,33 @@ ${autoInvoke}
 
 - Antes de generar código, leer la skill correspondiente.
 - Las skills referencian \`skills/_shared/common.md\` para evitar repetir patrones.
-- Si Engram está disponible, guardar decisiones importantes con \`mem_save\`.
+- **Engram obligatorio**: Usar \`mem_context\` al inicio de cada sesión para recuperar contexto previo. Guardar TODA decisión, bug, fix, descubrimiento o patrón con \`mem_save\` antes de terminar. Engram es la memoria persistente del proyecto — si no se guarda, se pierde.
+
+---
+
+## Uso de Engram (REQUIRED)
+
+### Al inicio de cada sesión
+\`\`\`
+mem_context(project="${projectName}") → recuperar decisiones previas
+\`\`\`
+
+### Durante la sesión — guardar TODO con mem_save
+- Cada bug encontrado y cómo se solucionó
+- Cada decisión de arquitectura o diseño
+- Cada patrón descubierto del proyecto
+- Cada config o workaround que funcionó
+- Cada refactor importante
+
+### Al finalizar la sesión
+\`\`\`
+mem_session_end(summary="Resumen de lo hecho en la sesión")
+\`\`\`
+
+### Ejemplo
+\`\`\`
+mem_save(title="Fix: build falla por X", type="bugfix", content="**What**: ... **Fix**: ... **Where**: ...")
+\`\`\`
 
 ---
 
@@ -632,6 +658,9 @@ async function main() {
   if (engramPath) {
     ok(`Engram encontrado: ${engramPath}`);
 
+    // Instalar skill de Engram automáticamente
+    copyTemplate("engram-memory", "skills/engram-memory/SKILL.md");
+
     if (!fs.existsSync(".vscode/mcp.json")) {
       fs.mkdirSync(".vscode", { recursive: true });
 
@@ -674,6 +703,7 @@ async function main() {
   }
   if (engramPath) {
     console.log(`  ${c.cyan(".vscode/mcp.json")}                   → Engram MCP`);
+    console.log(`  ${c.cyan("skills/engram-memory/SKILL.md")}       → Engram uso obligatorio`);
   }
   if (stealth) {
     console.log("");
