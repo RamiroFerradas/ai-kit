@@ -2,6 +2,24 @@
 
 Setup rápido de skills, memorias y configuraciones para trabajar con agentes IA en cualquier proyecto.
 
+**Zero dependencies. Zero npm publish. Directo desde GitHub.**
+
+## Instalación
+
+Un solo comando desde cualquier repo Git:
+
+```bash
+npx github:RamiroFerradas/ai-kit
+```
+
+Con nombre del proyecto:
+
+```bash
+npx github:RamiroFerradas/ai-kit --name "Mi App"
+```
+
+> Requiere Node.js 18+ y estar dentro de un repo Git.
+
 ## Qué hace
 
 Con un solo comando genera:
@@ -18,26 +36,22 @@ Con un solo comando genera:
 
 ## Uso
 
-### Desde cualquier repo (one-liner)
+### One-liner (recomendado)
 
 ```bash
-bash <(curl -sL https://raw.githubusercontent.com/RamiroFerradas/ai-kit/main/setup.sh)
-```
-
-Con nombre del proyecto:
-
-```bash
-bash <(curl -sL https://raw.githubusercontent.com/RamiroFerradas/ai-kit/main/setup.sh) --name "Mi App"
-```
-
-### Clonando el repo
-
-```bash
-git clone https://github.com/RamiroFerradas/ai-kit.git ~/.ai-kit
-
-# Desde cualquier repo:
 cd mi-proyecto
-bash ~/.ai-kit/setup.sh
+npx github:RamiroFerradas/ai-kit
+```
+
+### Alternativas
+
+```bash
+# Bash directo (sin Node.js)
+bash <(curl -sL https://raw.githubusercontent.com/RamiroFerradas/ai-kit/main/setup.sh)
+
+# Clonar una vez y reusar
+git clone https://github.com/RamiroFerradas/ai-kit.git ~/.ai-kit
+cd mi-proyecto && bash ~/.ai-kit/setup.sh
 ```
 
 ## Detección automática
@@ -104,8 +118,9 @@ mi-proyecto/
 
 1. Editar `skills/<proyecto>/SKILL.md` con las convenciones reales
 2. Editar `AGENTS.md` con los comandos de dev/build/test
-3. Commitear: `git add AGENTS.md CLAUDE.md .github/ skills/`
+3. Commitear: `git add AGENTS.md CLAUDE.md .github/ skills/ .gitignore`
 4. Agregar más skills según necesites (usar la skill `skill-creator`)
+5. Reiniciar VS Code si Engram se configuró → `Ctrl+Shift+P` → MCP: List Servers
 
 ## Idempotente
 

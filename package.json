@@ -1,0 +1,23 @@
+{
+  "name": "ai-kit-ramiro",
+  "version": "1.0.0",
+  "description": "Setup rápido de skills, Engram y configs para agentes IA en cualquier proyecto",
+  "bin": {
+    "ai-kit": "./bin/setup.js"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "skills",
+    "copilot",
+    "claude",
+    "engram",
+    "mcp"
+  ],
+  "author": "RamiroFerradas",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RamiroFerradas/ai-kit.git"
+  }
+}
