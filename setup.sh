@@ -97,7 +97,7 @@ elif [[ -f "Cargo.toml" ]]; then
 fi
 
 info "Stack detectado: ${BOLD}$FRAMEWORK${NC} / ${BOLD}$LANGUAGE${NC}"
-[[ $STEALTH -eq 1 ]] && info "Modo stealth: ${BOLD}activado${NC} (todo irá a .gitignore)"
+[[ $STEALTH -eq 1 ]] && info "Modo stealth: ${BOLD}activado${NC} (todo irá a .git/info/exclude — cero rastros)"
 echo ""
 
 # --- Helper: ask yes/no ---
@@ -478,22 +478,31 @@ else
   warn ".github/copilot-instructions.md ya existe, saltando"
 fi
 
-# --- .gitignore ---
-ADDED=0
-GITIGNORE_LINES=(".vscode/mcp.json")
+# --- .gitignore / .git/info/exclude ---
 if [[ $STEALTH -eq 1 ]]; then
-  GITIGNORE_LINES+=("AGENTS.md" "CLAUDE.md" ".github/copilot-instructions.md" "skills/" ".engram/")
-fi
-for line in "${GITIGNORE_LINES[@]}"; do
-  if ! grep -qF "$line" .gitignore 2>/dev/null; then
-    echo "$line" >> .gitignore
-    ((ADDED++))
+  # Stealth: usar .git/info/exclude para cero rastros
+  EXCLUDE_FILE=".git/info/exclude"
+  mkdir -p "$(dirname "$EXCLUDE_FILE")"
+  ADDED=0
+  for line in ".vscode/mcp.json" "AGENTS.md" "CLAUDE.md" ".github/copilot-instructions.md" "skills/" ".engram/"; do
+    if ! grep -qF "$line" "$EXCLUDE_FILE" 2>/dev/null; then
+      echo "$line" >> "$EXCLUDE_FILE"
+      ((ADDED++))
+    fi
+  done
+  if [[ $ADDED -gt 0 ]]; then
+    ok ".git/info/exclude actualizado (sin rastro en el repo)"
+  else
+    ok ".git/info/exclude ya configurado"
   fi
-done
-if [[ $ADDED -gt 0 ]]; then
-  ok ".gitignore actualizado"
 else
-  ok ".gitignore ya configurado"
+  # Normal: solo .vscode/mcp.json en .gitignore
+  if ! grep -qF ".vscode/mcp.json" .gitignore 2>/dev/null; then
+    echo ".vscode/mcp.json" >> .gitignore
+    ok ".gitignore actualizado"
+  else
+    ok ".gitignore ya configurado"
+  fi
 fi
 
 # =============================================================================
@@ -651,14 +660,14 @@ done
 [[ -n "$ENGRAM_PATH" ]] && echo -e "  ${CYAN}.vscode/mcp.json${NC}                   → Engram MCP (gitignored)"
 if [[ $STEALTH -eq 1 ]]; then
   echo ""
-  echo -e "  ${YELLOW}🥷 Modo stealth activo — todos los archivos están en .gitignore${NC}"
+  echo -e "  ${YELLOW}🥷 Modo stealth activo — todo excluido vía .git/info/exclude (cero rastros)${NC}"
 fi
 echo ""
 echo -e "${BOLD}Próximos pasos:${NC}"
 echo -e "  1. Editar ${CYAN}skills/$SKILL_NAME/SKILL.md${NC} con tus convenciones"
 echo -e "  2. Editar ${CYAN}AGENTS.md${NC} con comandos y stack real"
 if [[ $STEALTH -eq 1 ]]; then
-  echo -e "  3. Los archivos ya están en .gitignore — no se subirán al repo"
+  echo -e "  3. Los archivos están excluidos vía .git/info/exclude — cero rastros en el repo"
 else
   echo -e "  3. Commitear:"
   echo -e "     ${YELLOW}git add AGENTS.md CLAUDE.md .github/ skills/ .gitignore${NC}"

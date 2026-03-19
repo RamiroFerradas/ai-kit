@@ -116,6 +116,19 @@ function ensureGitignore(line) {
   return false;
 }
 
+// --- Agregar línea a .git/info/exclude (stealth, sin rastro) ---
+function ensureGitExclude(line) {
+  const file = path.join(".git", "info", "exclude");
+  const dir = path.dirname(file);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  const content = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
+  if (!content.includes(line)) {
+    fs.appendFileSync(file, `\n${line}\n`);
+    return true;
+  }
+  return false;
+}
+
 // --- Prompt interactivo ---
 function ask(question, defaultValue) {
   return new Promise((resolve) => {
@@ -461,7 +474,7 @@ async function main() {
   info(`Proyecto: ${c.bold(projectName)}`);
   info(`Skill principal: ${c.bold(skillName)}`);
   info(`Stack detectado: ${c.bold(framework)} / ${c.bold(language)}`);
-  if (stealth) info(`Modo stealth: ${c.bold("activado")} (todo irá a .gitignore)`);
+  if (stealth) info(`Modo stealth: ${c.bold("activado")} (todo irá a .git/info/exclude — cero rastros)`);
   console.log("");
 
   // --- Preguntar por skill groups opcionales ---
@@ -509,16 +522,27 @@ async function main() {
     warn(".github/copilot-instructions.md ya existe, saltando");
   }
 
-  // .gitignore
-  const gitignoreLines = [".vscode/mcp.json"];
+  // .gitignore / .git/info/exclude
   if (stealth) {
-    gitignoreLines.push("AGENTS.md", "CLAUDE.md", ".github/copilot-instructions.md", "skills/", ".engram/");
+    // Stealth: usar .git/info/exclude para cero rastros en el repo
+    const excludeLines = [
+      ".vscode/mcp.json",
+      "AGENTS.md",
+      "CLAUDE.md",
+      ".github/copilot-instructions.md",
+      "skills/",
+      ".engram/",
+    ];
+    let excludeUpdated = false;
+    for (const line of excludeLines) {
+      if (ensureGitExclude(line)) excludeUpdated = true;
+    }
+    ok(excludeUpdated ? ".git/info/exclude actualizado (sin rastro en el repo)" : ".git/info/exclude ya configurado");
+  } else {
+    // Normal: solo .vscode/mcp.json en .gitignore
+    const updated = ensureGitignore(".vscode/mcp.json");
+    ok(updated ? ".gitignore actualizado" : ".gitignore ya configurado");
   }
-  let gitignoreUpdated = false;
-  for (const line of gitignoreLines) {
-    if (ensureGitignore(line)) gitignoreUpdated = true;
-  }
-  ok(gitignoreUpdated ? ".gitignore actualizado" : ".gitignore ya configurado");
 
   // --- ESLint unused imports (solo para proyectos TS/JS con package.json) ---
   if (language === "TypeScript/JavaScript" && fs.existsSync("package.json")) {
@@ -653,14 +677,14 @@ async function main() {
   }
   if (stealth) {
     console.log("");
-    console.log(`  ${c.yellow("🥷 Modo stealth activo — todos los archivos están en .gitignore")}`);
+    console.log(`  ${c.yellow("🥷 Modo stealth activo — todo excluido vía .git/info/exclude (cero rastros)")}`);
   }
   console.log("");
   console.log(c.bold("Próximos pasos:"));
   console.log(`  1. Editar ${c.cyan(`skills/${skillName}/SKILL.md`)} con tus convenciones`);
   console.log(`  2. Editar ${c.cyan("AGENTS.md")} con comandos y stack real`);
   if (stealth) {
-    console.log(`  3. Los archivos ya están en .gitignore — no se subirán al repo`);
+    console.log(`  3. Los archivos están excluidos vía .git/info/exclude — cero rastros en el repo`);
   } else {
     console.log(`  3. Commitear:`);
     console.log(`     ${c.yellow('git add AGENTS.md CLAUDE.md .github/ skills/ .gitignore')}`);

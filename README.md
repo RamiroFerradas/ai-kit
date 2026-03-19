@@ -20,14 +20,14 @@ npx github:RamiroFerradas/ai-kit --name "Mi App"
 
 ### Modo stealth (ocultar del repo)
 
-Agrega todos los archivos generados al `.gitignore` para que sean invisibles en el repo:
+Excluye todos los archivos generados vía `.git/info/exclude` — cero rastros en el repo (ni siquiera en `.gitignore`):
 
 ```bash
 npx github:RamiroFerradas/ai-kit --stealth
 npx github:RamiroFerradas/ai-kit --name "Mi App" --stealth
 ```
 
-Los archivos siguen existiendo en tu máquina local pero no se commitean ni se suben al repo. Perfecto para trabajar con agentes IA sin que el sistema sea visible para otros.
+Los archivos siguen existiendo en tu máquina local pero no se commitean ni aparecen en `git status`. Perfecto para trabajar con agentes IA sin que el sistema sea visible para nadie.
 
 ### Aceptar todo sin preguntar
 
@@ -169,9 +169,9 @@ mi-proyecto/
 4. Agregar más skills según necesites (usar la skill `skill-creator`)
 5. Reiniciar VS Code si Engram se configuró → `Ctrl+Shift+P` → MCP: List Servers
 
-## Modo stealth — qué se ignora
+## Modo stealth — qué se excluye
 
-Con `--stealth`, se agregan estas líneas al `.gitignore`:
+Con `--stealth`, se agregan estas líneas a `.git/info/exclude` (archivo local de Git, nunca se commitea):
 
 ```
 AGENTS.md
@@ -182,7 +182,7 @@ skills/
 .vscode/mcp.json
 ```
 
-Los archivos quedan solo en tu máquina local. Si trabajás en equipo, cada dev ejecuta el setup en su copia.
+A diferencia de `.gitignore`, `.git/info/exclude` no deja ningún rastro en el repo. Los archivos quedan solo en tu máquina local. Si trabajás en equipo, cada dev ejecuta el setup en su copia.
 
 ## Idempotente
 
